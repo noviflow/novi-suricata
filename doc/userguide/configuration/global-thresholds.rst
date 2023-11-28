@@ -22,6 +22,8 @@ Syntax:
   threshold gen_id <gid>, sig_id <sid>, type <threshold|limit|both>, \
     track <by_src|by_dst|by_rule|by_both>, count <N>, seconds <T>
 
+TODO: change documentation to adda track by_triple
+
 rate_filter
 ~~~~~~~~~~~
 

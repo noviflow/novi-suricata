@@ -60,7 +60,7 @@
 #include "util-cpu.h"
 #endif
 
-#define PARSE_REGEX "^\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_rule|\\d+)\\s*,\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_rule|\\d+)\\s*,\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_rule|\\d+)\\s*,\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_rule|\\d+)\\s*"
+#define PARSE_REGEX "^\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_triple|by_rule|\\d+)\\s*,\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_triple|by_rule|\\d+)\\s*,\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_triple|by_rule|\\d+)\\s*,\\s*(track|type|count|seconds)\\s+(limit|both|threshold|by_dst|by_src|by_both|by_triple|by_rule|\\d+)\\s*"
 
 static DetectParseRegex parse_regex;
 
@@ -154,9 +154,11 @@ static DetectThresholdData *DetectThresholdParse(const char *rawstr)
         goto error;
     }
 
-    de = SCCalloc(1, sizeof(DetectThresholdData));
+    de = SCMalloc(sizeof(DetectThresholdData));
     if (unlikely(de == NULL))
         goto error;
+
+    memset(de,0,sizeof(DetectThresholdData));
 
     for (i = 0; i < (ret - 1); i++) {
 
@@ -181,6 +183,8 @@ static DetectThresholdData *DetectThresholdParse(const char *rawstr)
             de->track = TRACK_SRC;
         if (strncasecmp(args[i],"by_both",strlen("by_both")) == 0)
             de->track = TRACK_BOTH;
+        if (strncasecmp(args[i],"by_triple",strlen("by_triple")) == 0)
+            de->track = TRACK_TRIPLE;            
         if (strncasecmp(args[i],"by_rule",strlen("by_rule")) == 0)
             de->track = TRACK_RULE;
         if (strncasecmp(args[i],"count",strlen("count")) == 0)
@@ -237,6 +241,7 @@ error:
 static int DetectThresholdSetup(DetectEngineCtx *de_ctx, Signature *s, const char *rawstr)
 {
     DetectThresholdData *de = NULL;
+    SigMatch *sm = NULL;
     SigMatch *tmpm = NULL;
 
     /* checks if there is a previous instance of detection_filter */
@@ -256,16 +261,20 @@ static int DetectThresholdSetup(DetectEngineCtx *de_ctx, Signature *s, const cha
     if (de == NULL)
         goto error;
 
-    if (SigMatchAppendSMToList(
-                de_ctx, s, DETECT_THRESHOLD, (SigMatchCtx *)de, DETECT_SM_LIST_THRESHOLD) == NULL) {
+    sm = SigMatchAlloc();
+    if (sm == NULL)
         goto error;
-    }
+
+    sm->type = DETECT_THRESHOLD;
+    sm->ctx = (SigMatchCtx *)de;
+
+    SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
 
     return 0;
 
 error:
-    if (de)
-        SCFree(de);
+    if (de) SCFree(de);
+    if (sm) SCFree(sm);
     return -1;
 }
 

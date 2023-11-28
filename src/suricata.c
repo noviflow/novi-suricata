@@ -51,6 +51,7 @@
 #include "flow.h"
 #include "stream-tcp.h"
 #include "ippair.h"
+#include "ippairdport.h"
 
 #include "detect.h"
 #include "detect-parse.h"
@@ -189,7 +190,7 @@ uint16_t max_pending_packets;
 int g_detect_disabled = 0;
 
 /** set caps or not */
-bool sc_set_caps = false;
+int sc_set_caps = FALSE;
 
 bool g_system = false;
 
@@ -471,9 +472,10 @@ static int SetBpfString(int argc, char *argv[])
     if (bpf_len == 0)
         return TM_ECODE_OK;
 
-    bpf_filter = SCCalloc(1, bpf_len);
+    bpf_filter = SCMalloc(bpf_len);
     if (unlikely(bpf_filter == NULL))
         return TM_ECODE_FAILED;
+    memset(bpf_filter, 0x00, bpf_len);
 
     tmpindex = optind;
     while(argv[tmpindex] != NULL) {
@@ -518,11 +520,12 @@ static void SetBpfStringFromFile(char *filename)
     }
     bpf_len = st.st_size + 1;
 
-    bpf_filter = SCCalloc(1, bpf_len);
+    bpf_filter = SCMalloc(bpf_len);
     if (unlikely(bpf_filter == NULL)) {
         SCLogError("Failed to allocate buffer for bpf filter in file %s", filename);
         exit(EXIT_FAILURE);
     }
+    memset(bpf_filter, 0x00, bpf_len);
 
     nm = fread(bpf_filter, 1, bpf_len - 1, fp);
     if ((ferror(fp) != 0) || (nm != (bpf_len - 1))) {
@@ -1073,7 +1076,7 @@ static void SCInstanceInit(SCInstance *suri, const char *progname)
 
     memset(suri->pcap_dev, 0, sizeof(suri->pcap_dev));
     suri->sig_file = NULL;
-    suri->sig_file_exclusive = false;
+    suri->sig_file_exclusive = FALSE;
     suri->pid_filename = NULL;
     suri->regex_arg = NULL;
 
@@ -1082,8 +1085,8 @@ static void SCInstanceInit(SCInstance *suri, const char *progname)
 #ifndef OS_WIN32
     suri->user_name = NULL;
     suri->group_name = NULL;
-    suri->do_setuid = false;
-    suri->do_setgid = false;
+    suri->do_setuid = FALSE;
+    suri->do_setgid = FALSE;
 #endif /* OS_WIN32 */
     suri->userid = 0;
     suri->groupid = 0;
@@ -1603,7 +1606,7 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
                 return TM_ECODE_FAILED;
 #else
                 suri->user_name = optarg;
-                suri->do_setuid = true;
+                suri->do_setuid = TRUE;
 #endif /* HAVE_LIBCAP_NG */
             } else if (strcmp((long_opts[option_index]).name, "group") == 0) {
 #ifndef HAVE_LIBCAP_NG
@@ -1612,7 +1615,7 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
                 return TM_ECODE_FAILED;
 #else
                 suri->group_name = optarg;
-                suri->do_setgid = true;
+                suri->do_setgid = TRUE;
 #endif /* HAVE_LIBCAP_NG */
             } else if (strcmp((long_opts[option_index]).name, "erf-in") == 0) {
                 suri->run_mode = RUNMODE_ERF_FILE;
@@ -1970,7 +1973,7 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
                 return TM_ECODE_FAILED;
             }
             suri->sig_file = optarg;
-            suri->sig_file_exclusive = true;
+            suri->sig_file_exclusive = TRUE;
             break;
         case 'u':
 #ifdef UNITTESTS
@@ -2140,25 +2143,34 @@ static int InitRunAs(SCInstance *suri)
 #ifndef OS_WIN32
     /* Try to get user/group to run suricata as if
        command line as not decide of that */
-    if (!suri->do_setuid && !suri->do_setgid) {
+    if (suri->do_setuid == FALSE && suri->do_setgid == FALSE) {
         const char *id;
         if (ConfGet("run-as.user", &id) == 1) {
-            suri->do_setuid = true;
+            suri->do_setuid = TRUE;
             suri->user_name = id;
         }
         if (ConfGet("run-as.group", &id) == 1) {
-            suri->do_setgid = true;
+            suri->do_setgid = TRUE;
             suri->group_name = id;
         }
     }
     /* Get the suricata user ID to given user ID */
-    if (suri->do_setuid) {
-        SCGetUserID(suri->user_name, suri->group_name, &suri->userid, &suri->groupid);
-        sc_set_caps = true;
-        /* Get the suricata group ID to given group ID */
-    } else if (suri->do_setgid) {
-        SCGetGroupID(suri->group_name, &suri->groupid);
-        sc_set_caps = true;
+    if (suri->do_setuid == TRUE) {
+        if (SCGetUserID(suri->user_name, suri->group_name,
+                        &suri->userid, &suri->groupid) != 0) {
+            SCLogError("failed in getting user ID");
+            return TM_ECODE_FAILED;
+        }
+
+        sc_set_caps = TRUE;
+    /* Get the suricata group ID to given group ID */
+    } else if (suri->do_setgid == TRUE) {
+        if (SCGetGroupID(suri->group_name, &suri->groupid) != 0) {
+            SCLogError("failed in getting group ID");
+            return TM_ECODE_FAILED;
+        }
+
+        sc_set_caps = TRUE;
     }
 #endif
     return TM_ECODE_OK;
@@ -2221,6 +2233,7 @@ void PreRunInit(const int runmode)
     DefragInit();
     FlowInitConfig(FLOW_QUIET);
     IPPairInitConfig(FLOW_QUIET);
+    IPPairDPortInitConfig(FLOW_QUIET);
     StreamTcpInitConfig(STREAM_VERBOSE);
     AppLayerParserPostStreamSetup();
     AppLayerRegisterGlobalCounters();
@@ -2285,6 +2298,7 @@ void PostRunDeinit(const int runmode, struct timeval *start_time)
     RunModeShutDown();
     FlowShutdown();
     IPPairShutdown();
+    IPPairDPortShutdown();
     HostCleanup();
     StreamTcpFreeConfig(STREAM_VERBOSE);
     DefragDestroy();

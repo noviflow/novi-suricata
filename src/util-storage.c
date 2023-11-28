@@ -50,13 +50,15 @@ static StorageMapping **storage_map = NULL;
 
 static const char *StoragePrintType(StorageEnum type)
 {
-    switch(type) {
+    switch (type) {
         case STORAGE_HOST:
             return "host";
         case STORAGE_FLOW:
             return "flow";
         case STORAGE_IPPAIR:
             return "ippair";
+        case STORAGE_IPPAIRDPORT:
+            return "ippairdport";
         case STORAGE_DEVICE:
             return "livedevice";
         case STORAGE_MAX:
@@ -97,13 +99,14 @@ void StorageCleanup(void)
     storage_list = NULL;
 }
 
-int StorageRegister(const StorageEnum type, const char *name, const unsigned int size, void *(*Alloc)(unsigned int), void (*Free)(void *))
+int StorageRegister(const StorageEnum type, const char *name, const unsigned int size,
+        void *(*Alloc)(unsigned int), void (*Free)(void *))
 {
     if (storage_registration_closed)
         return -1;
 
-    if (type >= STORAGE_MAX || name == NULL || strlen(name) == 0 ||
-            size == 0 || (size != sizeof(void *) && Alloc == NULL) || Free == NULL)
+    if (type >= STORAGE_MAX || name == NULL || strlen(name) == 0 || size == 0 ||
+            (size != sizeof(void *) && Alloc == NULL) || Free == NULL)
         return -1;
 
     StorageList *list = storage_list;
@@ -118,9 +121,11 @@ int StorageRegister(const StorageEnum type, const char *name, const unsigned int
         list = list->next;
     }
 
-    StorageList *entry = SCCalloc(1, sizeof(StorageList));
+    StorageList *entry = SCMalloc(sizeof(StorageList));
     if (unlikely(entry == NULL))
         return -1;
+
+    memset(entry, 0x00, sizeof(StorageList));
 
     entry->map.type = type;
     entry->map.name = name;
@@ -149,16 +154,18 @@ int StorageFinalize(void)
     if (count == 0)
         return 0;
 
-    storage_map = SCCalloc(STORAGE_MAX, sizeof(StorageMapping *));
+    storage_map = SCMalloc(sizeof(StorageMapping *) * STORAGE_MAX);
     if (unlikely(storage_map == NULL)) {
         return -1;
     }
+    memset(storage_map, 0x00, sizeof(StorageMapping *) * STORAGE_MAX);
 
     for (i = 0; i < STORAGE_MAX; i++) {
         if (storage_max_id[i] > 0) {
-            storage_map[i] = SCCalloc(storage_max_id[i], sizeof(StorageMapping));
+            storage_map[i] = SCMalloc(sizeof(StorageMapping) * storage_max_id[i]);
             if (storage_map[i] == NULL)
                 return -1;
+            memset(storage_map[i], 0x00, sizeof(StorageMapping) * storage_max_id[i]);
         }
     }
 
@@ -186,8 +193,8 @@ int StorageFinalize(void)
         int j;
         for (j = 0; j < storage_max_id[i]; j++) {
             StorageMapping *m = &storage_map[i][j];
-            SCLogDebug("type \"%s\" name \"%s\" size \"%"PRIuMAX"\"",
-                    StoragePrintType(m->type), m->name, (uintmax_t)m->size);
+            SCLogDebug("type \"%s\" name \"%s\" size \"%" PRIuMAX "\"", StoragePrintType(m->type),
+                    m->name, (uintmax_t)m->size);
         }
     }
 #endif
@@ -262,9 +269,10 @@ void *StorageAllocById(Storage **storage, StorageEnum type, int id)
     Storage *store = *storage;
     if (store == NULL) {
         // coverity[suspicious_sizeof : FALSE]
-        store = SCCalloc(storage_max_id[type], sizeof(void *));
+        store = SCMalloc(sizeof(void *) * storage_max_id[type]);
         if (unlikely(store == NULL))
             return NULL;
+        memset(store, 0x00, sizeof(void *) * storage_max_id[type]);
     }
     SCLogDebug("store %p", store);
 
@@ -458,8 +466,8 @@ static int StorageTest02(void)
         goto error;
     }
 
-    //StorageFreeById(storage, STORAGE_HOST, id1);
-    //StorageFreeById(storage, STORAGE_HOST, id2);
+    // StorageFreeById(storage, STORAGE_HOST, id1);
+    // StorageFreeById(storage, STORAGE_HOST, id2);
 
     StorageFree(&storage, STORAGE_HOST);
 

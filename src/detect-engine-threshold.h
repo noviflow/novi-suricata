@@ -28,6 +28,7 @@
 #include "detect.h"
 #include "host.h"
 #include "ippair.h"
+#include "ippairdport.h"
 #include "host-storage.h"
 
 void ThresholdInit(void);
@@ -36,6 +37,7 @@ HostStorageId ThresholdHostStorageId(void);
 int ThresholdHostHasThreshold(Host *);
 
 int ThresholdIPPairHasThreshold(IPPair *pair);
+int ThresholdIPPairDPortHasThreshold(IPPairDPort *triple);
 
 const DetectThresholdData *SigGetThresholdTypeIter(
         const Signature *, const SigMatchData **, int list);
@@ -49,6 +51,7 @@ void ThresholdContextDestroy(DetectEngineCtx *);
 
 int ThresholdHostTimeoutCheck(Host *, SCTime_t);
 int ThresholdIPPairTimeoutCheck(IPPair *, SCTime_t);
+int ThresholdIPPairDPortTimeoutCheck(IPPairDPort *, SCTime_t);
 void ThresholdListFree(void *ptr);
 
 #endif /* __DETECT_ENGINE_THRESHOLD_H__ */

@@ -1604,6 +1604,16 @@ host:
 #  prealloc: 1000
 #  memcap: 32mb
 
+
+# IP Pair Destination Port table:
+#
+# Used thresholding subsystems
+#
+#ippairdport:
+#  hash-size: 4096
+#  prealloc: 1000
+#  memcap: 32mb
+
 # Decoder settings
 
 decoder:

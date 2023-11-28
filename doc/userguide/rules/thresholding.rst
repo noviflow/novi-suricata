@@ -17,6 +17,8 @@ frequency. It has 3 modes: threshold, limit and both.
 Syntax::
 
   threshold: type <threshold|limit|both>, track <by_src|by_dst|by_rule|by_both>, count <N>, seconds <T>
+  
+TODO: change documentation to add track by_triple
 
 type "threshold"
 ~~~~~~~~~~~~~~~~

@@ -43,6 +43,7 @@
 #include "defrag.h"
 #include "defrag-hash.h"
 #include "ippair.h"
+#include "ippairdport.h"
 #include "app-layer.h"
 #include "app-layer-htp-mem.h"
 #include "host-bit.h"
@@ -86,7 +87,7 @@ const char *RunModeUnixSocketGetDefaultMode(void)
     return "autofp";
 }
 
-#define MEMCAPS_MAX 7
+#define MEMCAPS_MAX 8
 static MemcapCommand memcaps[MEMCAPS_MAX] = {
     {
         "stream",
@@ -124,6 +125,12 @@ static MemcapCommand memcaps[MEMCAPS_MAX] = {
         IPPairGetMemcap,
         IPPairGetMemuse
     },
+    {
+        "ippairdport",
+        IPPairDPortSetMemcap,
+        IPPairDPortGetMemcap,
+        IPPairDPortGetMemuse
+    },    
     {
         "host",
         HostSetMemcap,
@@ -272,11 +279,12 @@ static TmEcode UnixListAddFile(PcapCommand *this, const char *filename, const ch
     PcapFiles *cfile = NULL;
     if (filename == NULL || this == NULL)
         return TM_ECODE_FAILED;
-    cfile = SCCalloc(1, sizeof(PcapFiles));
+    cfile = SCMalloc(sizeof(PcapFiles));
     if (unlikely(cfile == NULL)) {
         SCLogError("Unable to allocate new file");
         return TM_ECODE_FAILED;
     }
+    memset(cfile, 0, sizeof(PcapFiles));
 
     cfile->filename = SCStrdup(filename);
     if (unlikely(cfile->filename == NULL)) {

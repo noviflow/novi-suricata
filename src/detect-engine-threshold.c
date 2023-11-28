@@ -45,6 +45,9 @@
 #include "ippair.h"
 #include "ippair-storage.h"
 
+#include "ippairdport.h"
+#include "ippairdport-storage.h"
+
 #include "detect-parse.h"
 #include "detect-engine-sigorder.h"
 
@@ -72,6 +75,7 @@
 
 static HostStorageId host_threshold_id = { .id = -1 };     /**< host storage id for thresholds */
 static IPPairStorageId ippair_threshold_id = { .id = -1 }; /**< ip pair storage id for thresholds */
+static IPPairDPortStorageId ippairdport_threshold_id = { .id = -1 }; /**< ip pair storage id for thresholds */
 
 HostStorageId ThresholdHostStorageId(void)
 {
@@ -88,6 +92,10 @@ void ThresholdInit(void)
     if (ippair_threshold_id.id == -1) {
         FatalError("Can't initiate IP pair storage for thresholding");
     }
+    ippairdport_threshold_id = IPPairDPortStorageRegister("threshold", sizeof(void *), NULL, ThresholdListFree);
+    if (ippairdport_threshold_id.id == -1) {
+        FatalError("Can't initiate IP pair Destination port storage for thresholding");
+    }
 }
 
 int ThresholdHostHasThreshold(Host *host)
@@ -99,6 +107,12 @@ int ThresholdIPPairHasThreshold(IPPair *pair)
 {
     return IPPairGetStorageById(pair, ippair_threshold_id) ? 1 : 0;
 }
+
+int ThresholdIPPairDPortHasThreshold(IPPairDPort *triple)
+{
+    return IPPairDPortGetStorageById(triple, ippairdport_threshold_id) ? 1 : 0;
+}
+
 
 /**
  * \brief Return next DetectThresholdData for signature
@@ -209,6 +223,16 @@ int ThresholdIPPairTimeoutCheck(IPPair *pair, SCTime_t ts)
     return new_head == NULL;
 }
 
+int ThresholdIPPairDPortTimeoutCheck(IPPairDPort *triple, SCTime_t ts)
+{
+    DetectThresholdEntry* head = IPPairDPortGetStorageById(triple, ippairdport_threshold_id);
+    DetectThresholdEntry *new_head = ThresholdTimeoutCheck(head, ts);
+    if (new_head != head) {
+        IPPairDPortSetStorageById(triple, ippairdport_threshold_id, new_head);
+    }
+    return new_head == NULL;
+}
+
 static DetectThresholdEntry *
 DetectThresholdEntryAlloc(const DetectThresholdData *td, Packet *p,
                           uint32_t sid, uint32_t gid)
@@ -247,6 +271,19 @@ static DetectThresholdEntry *ThresholdIPPairLookupEntry(IPPair *pair,
     DetectThresholdEntry *e;
 
     for (e = IPPairGetStorageById(pair, ippair_threshold_id); e != NULL; e = e->next) {
+        if (e->sid == sid && e->gid == gid)
+            break;
+    }
+
+    return e;
+}
+
+static DetectThresholdEntry *ThresholdIPPairDPortLookupEntry(IPPairDPort *triple,
+        uint32_t sid, uint32_t gid)
+{
+    DetectThresholdEntry *e;
+
+    for (e = IPPairDPortGetStorageById(triple, ippairdport_threshold_id); e != NULL; e = e->next) {
         if (e->sid == sid && e->gid == gid)
             break;
     }
@@ -380,6 +417,18 @@ static void AddEntryToIPPairStorage(IPPair *pair, DetectThresholdEntry *e, SCTim
         e->tv_timeout = 0;
         e->next = IPPairGetStorageById(pair, ippair_threshold_id);
         IPPairSetStorageById(pair, ippair_threshold_id, e);
+    }
+}
+
+
+static void AddEntryToIPPairDPortStorage(IPPairDPort *triple, DetectThresholdEntry *e, SCTime_t packet_time)
+{
+    if (triple && e) {
+        e->current_count = 1;
+        e->tv1 = packet_time;
+        e->tv_timeout = 0;
+        e->next = IPPairDPortGetStorageById(triple, ippairdport_threshold_id);
+        IPPairDPortSetStorageById(triple, ippairdport_threshold_id, e);
     }
 }
 
@@ -547,6 +596,23 @@ static int ThresholdHandlePacketIPPair(IPPair *pair, Packet *p, const DetectThre
     return ret;
 }
 
+static int ThresholdHandlePacketIPPairDPort(IPPairDPort *triple, Packet *p, const DetectThresholdData *td,
+    uint32_t sid, uint32_t gid, PacketAlert *pa)
+{
+    int ret = 0;
+
+    DetectThresholdEntry *lookup_tsh = ThresholdIPPairDPortLookupEntry(triple, sid, gid);
+    SCLogDebug("ippairdport lookup_tsh %p sid %u gid %u", lookup_tsh, sid, gid);
+
+    DetectThresholdEntry *new_tsh = NULL;
+    ret = ThresholdHandlePacket(p, lookup_tsh, &new_tsh, td, sid, gid, pa);
+    if (new_tsh != NULL) {
+        AddEntryToIPPairDPortStorage(triple, new_tsh, p->ts);
+    }
+
+    return ret;
+}
+
 /**
  *  \retval 2 silent match (no alert but apply actions)
  *  \retval 1 normal match
@@ -628,6 +694,12 @@ int PacketAlertThreshold(DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx
         if (pair) {
             ret = ThresholdHandlePacketIPPair(pair, p, td, s->id, s->gid, pa);
             IPPairRelease(pair);
+        }
+    } else if (td->track == TRACK_TRIPLE) {
+        IPPairDPort *triple = IPPairDPortGetIPPairDPortFromHash(&p->src, &p->dst, &p->dp);
+        if (triple) {
+            ret = ThresholdHandlePacketIPPairDPort(triple, p, td, s->id, s->gid, pa);
+            IPPairDPortRelease(triple);
         }
     } else if (td->track == TRACK_RULE) {
         SCMutexLock(&de_ctx->ths_ctx.threshold_table_lock);

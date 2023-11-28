@@ -37,6 +37,7 @@
 #define TRACK_RULE     3
 #define TRACK_EITHER   4 /**< either src or dst: only used by suppress */
 #define TRACK_BOTH     5 /* used by rate_filter to match detections by both src and dst addresses */
+#define TRACK_TRIPLE   6 /* used by rate_filter to match detections by src, dst addresses and destination port*/
 
 /* Get the new action to take */
 #define TH_ACTION_ALERT     0x01
@@ -55,7 +56,7 @@ typedef struct DetectThresholdData_ {
     uint32_t count;     /**< Event count */
     uint32_t seconds;   /**< Event seconds */
     uint8_t type;       /**< Threshold type : limit , threshold, both, detection_filter */
-    uint8_t track;      /**< Track type: by_src, by_dst */
+    uint8_t track;      /**< Track type: by_src, by_dst, by_triple */
     uint8_t new_action; /**< new_action alert|drop|pass|log|sdrop|reject */
     uint32_t timeout;   /**< timeout */
     uint32_t flags;     /**< flags used to set option */

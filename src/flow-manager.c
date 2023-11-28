@@ -60,6 +60,7 @@
 #include "host-timeout.h"
 #include "defrag-timeout.h"
 #include "ippair-timeout.h"
+#include "ippairdport-timeout.h"
 #include "app-layer-htp-range.h"
 
 #include "output-flow.h"
@@ -84,24 +85,10 @@ SC_ATOMIC_DECLARE(uint32_t, flowrec_cnt);
 SC_ATOMIC_DECLARE(uint32_t, flowrec_busy);
 SC_ATOMIC_EXTERN(unsigned int, flow_flags);
 
-static SCCtrlCondT flow_manager_ctrl_cond = PTHREAD_COND_INITIALIZER;
-static SCCtrlMutex flow_manager_ctrl_mutex = PTHREAD_MUTEX_INITIALIZER;
-static SCCtrlCondT flow_recycler_ctrl_cond = PTHREAD_COND_INITIALIZER;
-static SCCtrlMutex flow_recycler_ctrl_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-void FlowWakeupFlowManagerThread(void)
-{
-    SCCtrlMutexLock(&flow_manager_ctrl_mutex);
-    SCCtrlCondSignal(&flow_manager_ctrl_cond);
-    SCCtrlMutexUnlock(&flow_manager_ctrl_mutex);
-}
-
-void FlowWakeupFlowRecyclerThread(void)
-{
-    SCCtrlMutexLock(&flow_recycler_ctrl_mutex);
-    SCCtrlCondSignal(&flow_recycler_ctrl_cond);
-    SCCtrlMutexUnlock(&flow_recycler_ctrl_mutex);
-}
+SCCtrlCondT flow_manager_ctrl_cond;
+SCCtrlMutex flow_manager_ctrl_mutex;
+SCCtrlCondT flow_recycler_ctrl_cond;
+SCCtrlMutex flow_recycler_ctrl_mutex;
 
 void FlowTimeoutsInit(void)
 {
@@ -904,6 +891,7 @@ static TmEcode FlowManager(ThreadVars *th_v, void *thread_data)
                 DefragTimeoutHash(ts);
                 HostTimeoutHash(ts);
                 IPPairTimeoutHash(ts);
+                IPPairDPortTimeoutHash(ts);
                 HttpRangeContainersTimeoutHash(ts);
                 other_last_sec = (uint32_t)SCTIME_SECS(ts);
             }
@@ -955,6 +943,9 @@ void FlowManagerThreadSpawn(void)
         FatalError("invalid flow.managers setting %" PRIdMAX, setting);
     }
     flowmgr_number = (uint32_t)setting;
+
+    SCCtrlCondInit(&flow_manager_ctrl_cond, NULL);
+    SCCtrlMutexInit(&flow_manager_ctrl_mutex, NULL);
 
     SCLogConfig("using %u flow manager threads", flowmgr_number);
     StatsRegisterGlobalCounter("flow.memuse", FlowGetMemuse);
@@ -1158,6 +1149,9 @@ void FlowRecyclerThreadSpawn(void)
         FatalError("invalid flow.recyclers setting %" PRIdMAX, setting);
     }
     flowrec_number = (uint32_t)setting;
+
+    SCCtrlCondInit(&flow_recycler_ctrl_cond, NULL);
+    SCCtrlMutexInit(&flow_recycler_ctrl_mutex, NULL);
 
     SCLogConfig("using %u flow recycler threads", flowrec_number);
 

@@ -29,39 +29,39 @@
 
 unsigned int IPPairDPortStorageSize(void)
 {
-    return StorageGetSize(STORAGE_IPPAIR);
+    return StorageGetSize(STORAGE_IPPAIRDPORT);
 }
 
 void *IPPairDPortGetStorageById(IPPairDPort *h, IPPairDPortStorageId id)
 {
-    return StorageGetById((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIR, id.id);
+    return StorageGetById((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIRDPORT, id.id);
 }
 
 int IPPairDPortSetStorageById(IPPairDPort *h, IPPairDPortStorageId id, void *ptr)
 {
-    return StorageSetById((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIR, id.id, ptr);
+    return StorageSetById((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIRDPORT, id.id, ptr);
 }
 
 void *IPPairDPortAllocStorageById(IPPairDPort *h, IPPairDPortStorageId id)
 {
-    return StorageAllocByIdPrealloc((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIR, id.id);
+    return StorageAllocByIdPrealloc((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIRDPORT, id.id);
 }
 
 void IPPairDPortFreeStorageById(IPPairDPort *h, IPPairDPortStorageId id)
 {
-    StorageFreeById((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIR, id.id);
+    StorageFreeById((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIRDPORT, id.id);
 }
 
 void IPPairDPortFreeStorage(IPPairDPort *h)
 {
     if (IPPairDPortStorageSize() > 0)
-        StorageFreeAll((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIR);
+        StorageFreeAll((Storage *)((void *)h + sizeof(IPPairDPort)), STORAGE_IPPAIRDPORT);
 }
 
 IPPairDPortStorageId IPPairDPortStorageRegister(const char *name, const unsigned int size,
         void *(*Alloc)(unsigned int), void (*Free)(void *))
 {
-    int id = StorageRegister(STORAGE_IPPAIR, name, size, Alloc, Free);
+    int id = StorageRegister(STORAGE_IPPAIRDPORT, name, size, Alloc, Free);
     IPPairDPortStorageId ippsi = { .id = id };
     return ippsi;
 }

@@ -32,6 +32,7 @@
 
 #include "host.h"
 #include "ippair.h"
+#include "ippairdport.h"
 
 #include "detect.h"
 #include "detect-engine.h"
@@ -71,7 +72,7 @@ static FILE *g_ut_threshold_fp = NULL;
     "\\s*count\\s*(\\d+)\\s*,\\s*seconds\\s*(\\d+)\\s*$"
 
 /* TODO: "apply_to" */
-#define DETECT_RATE_REGEX "^,\\s*track\\s*(by_dst|by_src|by_both|by_rule)\\s*,\\s*count\\s*(\\d+)\\s*,\\s*seconds\\s*(\\d+)\\s*,\\s*new_action\\s*(alert|drop|pass|log|sdrop|reject)\\s*,\\s*timeout\\s*(\\d+)\\s*$"
+#define DETECT_RATE_REGEX "^,\\s*track\\s*(by_dst|by_src|by_both|by_triple|by_rule)\\s*,\\s*count\\s*(\\d+)\\s*,\\s*seconds\\s*(\\d+)\\s*,\\s*new_action\\s*(alert|drop|pass|log|sdrop|reject)\\s*,\\s*timeout\\s*(\\d+)\\s*$"
 
 /*
  * suppress has two form:
@@ -224,7 +225,6 @@ static int SetupSuppressRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid,
         const char *th_ip)
 {
     Signature *s = NULL;
-    SigMatch *sm = NULL;
     DetectThresholdData *de = NULL;
 
     BUG_ON(parsed_type != TYPE_SUPPRESS);
@@ -266,15 +266,10 @@ static int SetupSuppressRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid,
             if (unlikely(de == NULL))
                 goto error;
 
-            sm = SigMatchAlloc();
-            if (sm == NULL) {
-                SCLogError("Error allocating SigMatch");
+            if (SigMatchAppendSMToList(de_ctx, s, DETECT_THRESHOLD, (SigMatchCtx *)de,
+                        DETECT_SM_LIST_SUPPRESS) == NULL) {
                 goto error;
             }
-
-            sm->type = DETECT_THRESHOLD;
-            sm->ctx = (void *)de;
-            SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_SUPPRESS);
         }
     } else if (id == 0 && gid > 0)    {
         if (parsed_track == TRACK_RULE) {
@@ -295,16 +290,10 @@ static int SetupSuppressRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid,
             if (unlikely(de == NULL))
                 goto error;
 
-            sm = SigMatchAlloc();
-            if (sm == NULL) {
-                SCLogError("Error allocating SigMatch");
+            if (SigMatchAppendSMToList(de_ctx, s, DETECT_THRESHOLD, (SigMatchCtx *)de,
+                        DETECT_SM_LIST_SUPPRESS) == NULL) {
                 goto error;
             }
-
-            sm->type = DETECT_THRESHOLD;
-            sm->ctx = (void *)de;
-
-            SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_SUPPRESS);
         }
     } else if (id > 0 && gid == 0) {
         SCLogError("Can't use a event config that has "
@@ -327,16 +316,10 @@ static int SetupSuppressRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid,
             if (unlikely(de == NULL))
                 goto error;
 
-            sm = SigMatchAlloc();
-            if (sm == NULL) {
-                SCLogError("Error allocating SigMatch");
+            if (SigMatchAppendSMToList(de_ctx, s, DETECT_THRESHOLD, (SigMatchCtx *)de,
+                        DETECT_SM_LIST_SUPPRESS) == NULL) {
                 goto error;
             }
-
-            sm->type = DETECT_THRESHOLD;
-            sm->ctx = (void *)de;
-
-            SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_SUPPRESS);
         }
     }
 
@@ -377,8 +360,7 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
     /* Install it */
     if (id == 0 && gid == 0) {
         for (s = de_ctx->sig_list; s != NULL; s = s->next) {
-            sm = DetectGetLastSMByListId(s,
-                    DETECT_SM_LIST_THRESHOLD, DETECT_THRESHOLD, -1);
+            sm = DetectGetLastSMByListId(s, DETECT_SM_LIST_THRESHOLD, DETECT_THRESHOLD, -1);
             if (sm != NULL) {
                 SCLogWarning("signature sid:%" PRIu32 " has "
                              "an event var set.  The signature event var is "
@@ -399,10 +381,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                 continue;
             }
 
-            de = SCMalloc(sizeof(DetectThresholdData));
+            de = SCCalloc(1, sizeof(DetectThresholdData));
             if (unlikely(de == NULL))
                 goto error;
-            memset(de,0,sizeof(DetectThresholdData));
 
             de->type = parsed_type;
             de->track = parsed_track;
@@ -411,19 +392,14 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
             de->new_action = parsed_new_action;
             de->timeout = parsed_timeout;
 
-            sm = SigMatchAlloc();
-            if (sm == NULL) {
-                SCLogError("Error allocating SigMatch");
+            uint16_t smtype = DETECT_THRESHOLD;
+            if (parsed_type == TYPE_RATE)
+                smtype = DETECT_DETECTION_FILTER;
+
+            if (SigMatchAppendSMToList(
+                        de_ctx, s, smtype, (SigMatchCtx *)de, DETECT_SM_LIST_THRESHOLD) == NULL) {
                 goto error;
             }
-
-            if (parsed_type == TYPE_RATE)
-                sm->type = DETECT_DETECTION_FILTER;
-            else
-                sm->type = DETECT_THRESHOLD;
-            sm->ctx = (void *)de;
-
-            SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
         }
 
     } else if (id == 0 && gid > 0) {
@@ -440,10 +416,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                     continue;
                 }
 
-                de = SCMalloc(sizeof(DetectThresholdData));
+                de = SCCalloc(1, sizeof(DetectThresholdData));
                 if (unlikely(de == NULL))
                     goto error;
-                memset(de,0,sizeof(DetectThresholdData));
 
                 de->type = parsed_type;
                 de->track = parsed_track;
@@ -452,19 +427,14 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                 de->new_action = parsed_new_action;
                 de->timeout = parsed_timeout;
 
-                sm = SigMatchAlloc();
-                if (sm == NULL) {
-                    SCLogError("Error allocating SigMatch");
+                uint16_t smtype = DETECT_THRESHOLD;
+                if (parsed_type == TYPE_RATE)
+                    smtype = DETECT_DETECTION_FILTER;
+
+                if (SigMatchAppendSMToList(de_ctx, s, smtype, (SigMatchCtx *)de,
+                            DETECT_SM_LIST_THRESHOLD) == NULL) {
                     goto error;
                 }
-
-                if (parsed_type == TYPE_RATE)
-                    sm->type = DETECT_DETECTION_FILTER;
-                else
-                    sm->type = DETECT_THRESHOLD;
-                sm->ctx = (void *)de;
-
-                SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
             }
         }
     } else if (id > 0 && gid == 0) {
@@ -513,10 +483,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                 }
             }
 
-            de = SCMalloc(sizeof(DetectThresholdData));
+            de = SCCalloc(1, sizeof(DetectThresholdData));
             if (unlikely(de == NULL))
                 goto error;
-            memset(de,0,sizeof(DetectThresholdData));
 
             de->type = parsed_type;
             de->track = parsed_track;
@@ -525,19 +494,14 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
             de->new_action = parsed_new_action;
             de->timeout = parsed_timeout;
 
-            sm = SigMatchAlloc();
-            if (sm == NULL) {
-                SCLogError("Error allocating SigMatch");
+            uint16_t smtype = DETECT_THRESHOLD;
+            if (parsed_type == TYPE_RATE)
+                smtype = DETECT_DETECTION_FILTER;
+
+            if (SigMatchAppendSMToList(
+                        de_ctx, s, smtype, (SigMatchCtx *)de, DETECT_SM_LIST_THRESHOLD) == NULL) {
                 goto error;
             }
-
-            if (parsed_type == TYPE_RATE)
-                sm->type = DETECT_DETECTION_FILTER;
-            else
-                sm->type = DETECT_THRESHOLD;
-            sm->ctx = (void *)de;
-
-            SigMatchAppendSMToList(s, sm, DETECT_SM_LIST_THRESHOLD);
         }
     }
 end:
@@ -1045,7 +1009,11 @@ int SCThresholdConfParseFile(DetectEngineCtx *de_ctx, FILE *fp)
         }
     }
 
-    SCLogInfo("Threshold config parsed: %d rule(s) found", rule_num);
+    if (de_ctx != NULL && strlen(de_ctx->config_prefix) > 0)
+        SCLogInfo("tenant id %d: Threshold config parsed: %d rule(s) found", de_ctx->tenant_id,
+                rule_num);
+    else
+        SCLogInfo("Threshold config parsed: %d rule(s) found", rule_num);
     return 0;
 }
 

@@ -121,8 +121,8 @@ void IPPairDPortInitConfig(bool quiet);
 void IPPairDPortShutdown(void);
 void IPPairDPortCleanup(void);
 
-IPPairDPort *IPPairDPortLookupIPPairDPortFromHash (Address *, Address *, u_int16_t *);
-IPPairDPort *IPPairDPortGetIPPairDPortFromHash (Address *, Address *, u_int16_t *);
+IPPairDPort *IPPairDPortLookupIPPairDPortFromHash (Address *, Address *, u_int16_t);
+IPPairDPort *IPPairDPortGetIPPairDPortFromHash (Address *, Address *, u_int16_t);
 void IPPairDPortRelease(IPPairDPort *);
 void IPPairDPortLock(IPPairDPort *);
 void IPPairDPortClearMemory(IPPairDPort *);

@@ -138,7 +138,7 @@ void IPPairDPortFree(IPPairDPort *h)
     }
 }
 
-static IPPairDPort *IPPairDPortNew(Address *a, Address *b, uint16_t *c)
+static IPPairDPort *IPPairDPortNew(Address *a, Address *b, uint16_t c)
 {
     IPPairDPort *p = IPPairDPortAlloc();
     if (p == NULL)
@@ -149,7 +149,7 @@ static IPPairDPort *IPPairDPortNew(Address *a, Address *b, uint16_t *c)
     COPY_ADDRESS(b, &p->a[1]);
 
     /* copy destination port*/
-    COPY_PORT(c, &p->dp);
+    COPY_PORT(c, p->dp);
 
     return p;
 
@@ -413,13 +413,13 @@ static inline int IPPairDPortHashRawAddressIPv6GtU32(const uint32_t *a, const ui
  *  hash_rand -- set at init time
  *  source address
  */
-static uint32_t IPPairDPortGetKey(Address *a, Address *b, uint32_t *c)
+static uint32_t IPPairDPortGetKey(Address *a, Address *b, uint32_t c)
 {
     uint32_t key;
 
     if (a->family == AF_INET) {
         uint32_t triple[3] = { MIN(a->addr_data32[0], b->addr_data32[0]),
-            MAX(a->addr_data32[0], b->addr_data32[0]), *c };
+            MAX(a->addr_data32[0], b->addr_data32[0]), c };
         uint32_t hash = hashword(triple, 3, ippairdport_config.hash_rand);
         key = hash % ippairdport_config.hash_size;
     } else if (a->family == AF_INET6) {
@@ -443,7 +443,7 @@ static uint32_t IPPairDPortGetKey(Address *a, Address *b, uint32_t *c)
             triple[6] = b->addr_data32[2];
             triple[7] = b->addr_data32[3];
         }
-        triple[8] = *c;
+        triple[8] = c;
         uint32_t hash = hashword(triple, 9, ippairdport_config.hash_rand);
         key = hash % ippairdport_config.hash_size;
     } else
@@ -454,11 +454,11 @@ static uint32_t IPPairDPortGetKey(Address *a, Address *b, uint32_t *c)
 
 /* Since two or more ippairdports can have the same hash key, we need to compare
  * the ippairdport with the current addresses. */
-static inline int IPPairDPortCompare(IPPairDPort *p, Address *a, Address *b, uint16_t *c)
+static inline int IPPairDPortCompare(IPPairDPort *p, Address *a, Address *b, uint16_t c)
 {
     /* compare in both directions */
-    if ((CMP_ADDR(&p->a[0], a) && CMP_ADDR(&p->a[1], b) && CMP_PORT(&p->dp, c)) ||
-            (CMP_ADDR(&p->a[0], b) && CMP_ADDR(&p->a[1], a) && CMP_PORT(&p->dp, c)))
+    if ((CMP_ADDR(&p->a[0], a) && CMP_ADDR(&p->a[1], b) && CMP_PORT(p->dp, c)) ||
+            (CMP_ADDR(&p->a[0], b) && CMP_ADDR(&p->a[1], a) && CMP_PORT(p->dp, c)))
         return 1;
     return 0;
 }
@@ -471,7 +471,7 @@ static inline int IPPairDPortCompare(IPPairDPort *p, Address *a, Address *b, uin
  *
  *  \retval h *LOCKED* ippairdport on succes, NULL on error.
  */
-static IPPairDPort *IPPairDPortGetNew(Address *a, Address *b, uint16_t *c)
+static IPPairDPort *IPPairDPortGetNew(Address *a, Address *b, uint16_t c)
 {
     IPPairDPort *h = NULL;
 
@@ -516,11 +516,11 @@ static IPPairDPort *IPPairDPortGetNew(Address *a, Address *b, uint16_t *c)
     return h;
 }
 
-static void IPPairDPortInit(IPPairDPort *h, Address *a, Address *b, uint16_t *c)
+static void IPPairDPortInit(IPPairDPort *h, Address *a, Address *b, uint16_t c)
 {
     COPY_ADDRESS(a, &h->a[0]);
     COPY_ADDRESS(b, &h->a[1]);
-    COPY_PORT(c, &h->dp);
+    COPY_PORT(c, h->dp);
     (void)IPPairDPortIncrUsecnt(h);
 }
 
@@ -548,7 +548,7 @@ void IPPairDPortUnlock(IPPairDPort *h)
  *
  * returns a *LOCKED* ippairdport or NULL
  */
-IPPairDPort *IPPairDPortGetIPPairDPortFromHash(Address *a, Address *b, uint16_t *c)
+IPPairDPort *IPPairDPortGetIPPairDPortFromHash(Address *a, Address *b, uint16_t c)
 {
     IPPairDPort *h = NULL;
 
@@ -647,7 +647,7 @@ IPPairDPort *IPPairDPortGetIPPairDPortFromHash(Address *a, Address *b, uint16_t 
  *
  *  \retval h *LOCKED* ippairdport or NULL
  */
-IPPairDPort *IPPairDPortLookupIPPairDPortFromHash(Address *a, Address *b, uint16_t *c)
+IPPairDPort *IPPairDPortLookupIPPairDPortFromHash(Address *a, Address *b, uint16_t c)
 {
     IPPairDPort *h = NULL;
 

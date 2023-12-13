@@ -696,7 +696,7 @@ int PacketAlertThreshold(DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx
             IPPairRelease(pair);
         }
     } else if (td->track == TRACK_TRIPLE) {
-        IPPairDPort *triple = IPPairDPortGetIPPairDPortFromHash(&p->src, &p->dst, &p->dp);
+        IPPairDPort *triple = IPPairDPortGetIPPairDPortFromHash(&p->src, &p->dst, p->dp);
         if (triple) {
             ret = ThresholdHandlePacketIPPairDPort(triple, p, td, s->id, s->gid, pa);
             IPPairDPortRelease(triple);

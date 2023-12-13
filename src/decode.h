@@ -228,7 +228,7 @@ typedef struct Address_ {
 /* Port is just a uint16_t */
 typedef uint16_t Port;
 #define SET_PORT(v, p) ((p) = (v))
-#define COPY_PORT(a,b) (*(b) = *(a))
+#define COPY_PORT(a,b) ((b) = (a))
 
 #define CMP_ADDR(a1, a2) \
     (((a1)->addr_data32[3] == (a2)->addr_data32[3] && \

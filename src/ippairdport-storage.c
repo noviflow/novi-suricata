@@ -100,13 +100,14 @@ static int IPPairDPortStorageTest01(void)
     IPPairDPortInitConfig(1);
 
     Address a, b;
+    u_int16_t dp = 8080;
     memset(&a, 0x00, sizeof(a));
     memset(&b, 0x00, sizeof(b));
     a.addr_data32[0] = 0x01020304;
     b.addr_data32[0] = 0x04030201;
     a.family = AF_INET;
     b.family = AF_INET;
-    IPPairDPort *h = IPPairDPortGetIPPairDPortFromHash(&a, &b);
+    IPPairDPort *h = IPPairDPortGetIPPairDPortFromHash(&a, &b, dp);
     if (h == NULL) {
         printf("failed to get ippairdport: ");
         goto error;
@@ -176,13 +177,14 @@ static int IPPairDPortStorageTest02(void)
     IPPairDPortInitConfig(1);
 
     Address a, b;
+    u_int16_t dp = 8080;
     memset(&a, 0x00, sizeof(a));
     memset(&b, 0x00, sizeof(b));
     a.addr_data32[0] = 0x01020304;
     b.addr_data32[0] = 0x04030201;
     a.family = AF_INET;
     b.family = AF_INET;
-    IPPairDPort *h = IPPairDPortGetIPPairDPortFromHash(&a, &b);
+    IPPairDPort *h = IPPairDPortGetIPPairDPortFromHash(&a, &b, dp);
     if (h == NULL) {
         printf("failed to get ippairdport: ");
         goto error;
@@ -235,13 +237,14 @@ static int IPPairDPortStorageTest03(void)
     IPPairDPortInitConfig(1);
 
     Address a, b;
+    u_int16_t dp = 8080;
     memset(&a, 0x00, sizeof(a));
     memset(&b, 0x00, sizeof(b));
     a.addr_data32[0] = 0x01020304;
     b.addr_data32[0] = 0x04030201;
     a.family = AF_INET;
     b.family = AF_INET;
-    IPPairDPort *h = IPPairDPortGetIPPairDPortFromHash(&a, &b);
+    IPPairDPort *h = IPPairDPortGetIPPairDPortFromHash(&a, &b, dp);
     if (h == NULL) {
         printf("failed to get ippairdport: ");
         goto error;
